@@ -41,19 +41,21 @@ class CompressorNode(template.Node):
             if request is not None:
                 return settings.COMPRESS_DEBUG_TOGGLE in request.GET
 
-    def render_offline(self, compressor, forced):
+    def render_offline(self, context, forced):
         """
         If enabled and in offline mode, and not forced or in debug mode
         check the offline cache and return the result if given
         """
         if (settings.COMPRESS_ENABLED and
                 settings.COMPRESS_OFFLINE) and not forced:
-            key = get_offline_hexdigest(self.nodelist)
+            key = get_offline_hexdigest(self.nodelist.render(context))
             offline_manifest = get_offline_manifest()
             if key in offline_manifest:
                 return offline_manifest[key]
             else:
-                raise OfflineGenerationError('You have offline compression enabled but key "%s" is missing from offline manifest. You may need to run "python manage.py compress".' % key)
+                raise OfflineGenerationError('You have offline compression '
+                    'enabled but key "%s" is missing from offline manifest. '
+                    'You may need to run "python manage.py compress".' % key)
 
     def render_cached(self, compressor, forced):
         """
@@ -68,20 +70,20 @@ class CompressorNode(template.Node):
         return None, None
 
     def render(self, context, forced=False):
+
         # Check if in debug mode
         if self.debug_mode(context):
             return self.nodelist.render(context)
 
-        # Prepare the compressor
-        context.update({'name': self.name})
-        compressor = self.compressor_cls(content=self.nodelist.render(context),
-                                         context=context)
-
         # See if it has been rendered offline
-        cached_offline = self.render_offline(compressor, forced)
+        cached_offline = self.render_offline(context, forced)
         if cached_offline:
             return cached_offline
 
+        # Prepare the compressor
+        context['compressed'] = {'name': self.name}
+        compressor = self.compressor_cls(content=self.nodelist.render(context),
+                                         context=context)
         # Check cache
         cache_key, cache_content = self.render_cached(compressor, forced)
         if cache_content is not None:

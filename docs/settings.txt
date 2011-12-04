@@ -13,9 +13,32 @@ COMPRESS_ENABLED
 
 :Default: the opposite of ``DEBUG``
 
-Boolean that decides if compression will happen. In order to test compression
-when ``DEBUG`` is enabled COMPRESS_ENABLED_ needs to explicitly be set to
-``True``.
+Boolean that decides if compression will happen. To test compression
+when ``DEBUG`` is ``True`` COMPRESS_ENABLED_ must also be set to ``True``.
+
+When COMPRESS_ENABLED_ is ``False`` the input will be rendered without any
+compression except for code with a mimetype matching one listed in the
+COMPRESS_PRECOMPILERS_ setting. These matching files are still passed to the
+precompiler before rendering. 
+
+An example for some javascript and coffeescript.
+
+.. code-block:: django
+
+    {% load compress %}
+
+    {% compress js %}
+    <script type="text/javascript" src="/static/js/site-base.js" />
+    <script type="text/coffeescript" charset="utf-8" src="/static/js/awesome.coffee" />
+    {% endcompress %}
+
+With COMPRESS_ENABLED_ set to ``False`` this would give you something like
+this::
+
+    <script type="text/javascript" src="/static/js/site-base.js"></script>
+    <script type="text/javascript" src="/static/CACHE/js/8dd1a2872443.js" charset="utf-8"></script>
+
+
 
 .. _compress_url:
 
@@ -74,8 +97,8 @@ A filter that normalizes the URLs used in ``url()`` CSS statements.
 
 - ``COMPRESS_CSS_HASHING_METHOD`` -- The method to use when calculating
   the hash to append to processed URLs. Either ``'mtime'`` (default) or
-  ``'hash'``. Use the latter in case you're using multiple server to serve
-  your static files.
+  ``'content'``. Use the latter in case you're using multiple server to
+  serve your static files.
 
 ``compressor.filters.csstidy.CSSTidyFilter``
 """"""""""""""""""""""""""""""""""""""""""""
@@ -99,7 +122,9 @@ A filter for embedding media as `data: URIs`_ in the CSS.
 
 A filter that passes the CSS content to the `YUI compressor`_.
 
-- ``COMPRESS_YUI_BINARY`` -- The YUI compressor filesystem path.
+- ``COMPRESS_YUI_BINARY`` -- The YUI compressor filesystem path. Make sure
+  to also prepend this setting with ``java -jar`` if you use that kind of
+  distribution.
 
 - ``COMPRESS_YUI_CSS_ARGUMENTS``-- The arguments passed to the compressor.
 
@@ -139,7 +164,9 @@ A filter that uses the jsmin implementation `Slim It`_ to compress JavaScript co
 
 A filter that uses `Google Closure compiler`_.
 
-- ``COMPRESS_CLOSURE_COMPILER_BINARY`` -- The Closure compiler filesystem path.
+- ``COMPRESS_CLOSURE_COMPILER_BINARY`` -- The Closure compiler filesystem
+  path. Make sure to also prepend this setting with ``java -jar`` if you
+  use that kind of distribution.
 
 - ``COMPRESS_CLOSURE_COMPILER_ARGUMENTS`` -- The arguments passed to the compiler.
 

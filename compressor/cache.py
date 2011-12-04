@@ -49,8 +49,8 @@ def get_mtime_cachekey(filename):
     return get_cachekey("mtime.%s" % get_hexdigest(filename))
 
 
-def get_offline_hexdigest(source):
-    return get_hexdigest([smart_str(getattr(s, 's', s)) for s in source])
+def get_offline_hexdigest(render_template_string):
+    return get_hexdigest(render_template_string)
 
 
 def get_offline_cachekey(source):
@@ -99,6 +99,19 @@ def get_hashed_mtime(filename, length=12):
     except OSError:
         return None
     return get_hexdigest(mtime, length)
+
+
+def get_hashed_content(filename, length=12):
+    try:
+        filename = os.path.realpath(filename)
+    except OSError:
+        return None
+    hash_file = open(filename)
+    try:
+        content = hash_file.read()
+    finally:
+        hash_file.close()
+    return get_hexdigest(content, length)
 
 
 def cache_get(key):

@@ -34,11 +34,11 @@ class PostCompressSignalTestCase(TestCase):
         post_compress.connect(callback)
         self.js_node.output()
         args, kwargs = callback.call_args
-        self.assertEquals('django-compressor', kwargs['sender'])
+        self.assertEquals(JsCompressor, kwargs['sender'])
         self.assertEquals('js', kwargs['type'])
         self.assertEquals('file', kwargs['mode'])
         context = kwargs['context']
-        assert 'url' in context
+        assert 'url' in context['compressed']
 
     def test_css_signal_sent(self):
         def listener(sender, **kwargs):
@@ -47,11 +47,11 @@ class PostCompressSignalTestCase(TestCase):
         post_compress.connect(callback)
         self.css_node.output()
         args, kwargs = callback.call_args
-        self.assertEquals('django-compressor', kwargs['sender'])
+        self.assertEquals(CssCompressor, kwargs['sender'])
         self.assertEquals('css', kwargs['type'])
         self.assertEquals('file', kwargs['mode'])
         context = kwargs['context']
-        assert 'url' in context
+        assert 'url' in context['compressed']
 
     def test_css_signal_multiple_media_attributes(self):
         css = """\

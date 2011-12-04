@@ -12,7 +12,7 @@
 
 {% compress js%}
     <script type="text/javascript">
-        alert("test");
+        alert("{% firstof "test" %}");
     </script>
 {% endcompress %}
 
@@ -21,6 +21,13 @@
         alert("test 2");
     </script>
 {% endcompress %}
+
+{% if condition %}
+    {% compress js%}
+        <script type="text/javascript">alert("{{ condition|default:"yellow" }}");</script>
+    {% endcompress %}
+{% endif %}
+
 {% endspaceless %}{% endblock %}
 
 {% block js %}{% spaceless %}

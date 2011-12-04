@@ -63,9 +63,13 @@ class Compressor(object):
         # drop the querystring, which is used for non-compressed cache-busting.
         return basename.split("?", 1)[0]
 
-    def get_filepath(self, content):
-        filename = "%s.%s" % (get_hexdigest(content, 12), self.type)
-        return os.path.join(self.output_dir, self.output_prefix, filename)
+    def get_filepath(self, content, basename=None):
+        parts = []
+        if basename:
+            filename = os.path.split(basename)[1]
+            parts.append(os.path.splitext(filename)[0])
+        parts.extend([get_hexdigest(content, 12), self.type])
+        return os.path.join(self.output_dir, self.output_prefix, '.'.join(parts))
 
     def get_filename(self, basename):
         filename = None
@@ -151,7 +155,7 @@ class Compressor(object):
                 yield mode, smart_unicode(value, charset.lower())
             else:
                 if precompiled:
-                    value = self.handle_output(kind, value, forced=True)
+                    value = self.handle_output(kind, value, forced=True, basename=basename)
                     yield "verbatim", smart_unicode(value, charset.lower())
                 else:
                     yield mode, self.parser.elem_str(elem)
@@ -168,14 +172,10 @@ class Compressor(object):
         Passes each hunk (file or code) to the 'input' methods
         of the compressor filters.
         """
-        verbatim_content = []
-        rendered_content = []
+        content = []
         for mode, hunk in self.hunks(mode, forced):
-            if mode == 'verbatim':
-                verbatim_content.append(hunk)
-            else:
-                rendered_content.append(hunk)
-        return verbatim_content, rendered_content
+                content.append((mode, hunk))
+        return content
 
     def precompile(self, content, kind=None, elem=None, filename=None, **kwargs):
         if not kind:
@@ -211,42 +211,41 @@ class Compressor(object):
         any custom modification. Calls other mode specific methods or simply
         returns the content directly.
         """
-        verbatim_content, rendered_content = self.filtered_input(mode, forced)
-        if not verbatim_content and not rendered_content:
+        content = self.filtered_input(mode, forced)
+        if not content:
             return ''
 
+        charset = self.charset
+        output = '\n'.join(c.encode(charset) for (m, c) in content)
+
         if settings.COMPRESS_ENABLED or forced:
-            filtered_content = self.filtered_output(
-                '\n'.join((c.encode(self.charset) for c in rendered_content)))
+            filtered_content = self.filtered_output(output)
             finished_content = self.handle_output(mode, filtered_content, forced)
-            verbatim_content.append(finished_content)
+            output = finished_content
 
-        if verbatim_content:
-            return '\n'.join(verbatim_content)
+        return output
 
-        return self.content
-
-    def handle_output(self, mode, content, forced):
+    def handle_output(self, mode, content, forced, basename=None):
         # Then check for the appropriate output method and call it
         output_func = getattr(self, "output_%s" % mode, None)
         if callable(output_func):
-            return output_func(mode, content, forced)
+            return output_func(mode, content, forced, basename)
         # Total failure, raise a general exception
         raise CompressorError(
             "Couldn't find output method for mode '%s'" % mode)
 
-    def output_file(self, mode, content, forced=False):
+    def output_file(self, mode, content, forced=False, basename=None):
         """
         The output method that saves the content to a file and renders
         the appropriate template with the file's URL.
         """
-        new_filepath = self.get_filepath(content)
+        new_filepath = self.get_filepath(content, basename=basename)
         if not self.storage.exists(new_filepath) or forced:
             self.storage.save(new_filepath, ContentFile(content))
         url = self.storage.url(new_filepath)
         return self.render_output(mode, {"url": url})
 
-    def output_inline(self, mode, content, forced=False):
+    def output_inline(self, mode, content, forced=False, basename=None):
         """
         The output method that directly returns the content for inline
         display.
@@ -258,13 +257,15 @@ class Compressor(object):
         Renders the compressor output with the appropriate template for
         the given mode and template context.
         """
-        if context is None:
-            context = {}
-        final_context = Context()
-        final_context.update(self.context)
-        final_context.update(context)
-        final_context.update(self.extra_context)
-        post_compress.send(sender='django-compressor', type=self.type,
+        # Just in case someone renders the compressor outside
+        # the usual template rendering cycle
+        if 'compressed' not in self.context:
+            self.context['compressed'] = {}
+
+        self.context['compressed'].update(context or {})
+        self.context['compressed'].update(self.extra_context)
+        final_context = Context(self.context)
+        post_compress.send(sender=self.__class__, type=self.type,
                            mode=mode, context=final_context)
         return render_to_string("compressor/%s_%s.html" %
                                 (self.type, mode), final_context)
