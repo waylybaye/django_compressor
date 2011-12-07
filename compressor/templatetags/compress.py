@@ -70,7 +70,7 @@ class CompressorNode(template.Node):
         return None, None
 
     def render_output(self, compressor, forced=False):
-        return compressor.output(self.mode, forced=forced)
+        return compressor.output(self.mode, forced=forced, basename=self.name)
 
     def render(self, context, forced=False):
 
