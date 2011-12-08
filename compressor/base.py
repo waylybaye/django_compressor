@@ -67,8 +67,9 @@ class Compressor(object):
         parts = []
         if basename:
             filename = os.path.split(basename)[1]
-            parts.append(os.path.splitext(filename)[0])
-        parts.extend([get_hexdigest(content, 12), self.type])
+            parts.extend([os.path.splitext(filename)[0], self.type])
+        else:
+            parts.extend([get_hexdigest(content, 12), self.type])
         return os.path.join(self.output_dir, self.output_prefix, '.'.join(parts))
 
     def get_filename(self, basename):
@@ -237,10 +238,17 @@ class Compressor(object):
         The output method that saves the content to a file and renders
         the appropriate template with the file's URL.
         """
-        new_filepath = self.get_filepath(content, basename=basename)
+        hash = get_hexdigest(content, 12)
+        if not basename:
+            new_filepath = self.get_filepath(content, basename=hash)
+        else:
+            new_filepath = self.get_filepath(content, basename=basename)
         if not self.storage.exists(new_filepath) or forced:
             self.storage.save(new_filepath, ContentFile(content))
+
         url = self.storage.url(new_filepath)
+        if basename:
+            url += "?%s" % hash
         return self.render_output(mode, {"url": url})
 
     def output_inline(self, mode, content, forced=False, basename=None):
